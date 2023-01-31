@@ -25,6 +25,7 @@ db = SQLAlchemy(app)
 
 # --------------------------------------------------------------------------------------
 
+
 class User(db.Model):
     __tablename__ = 'users'
     id = db.Column(db.String, primary_key=True)
