@@ -6,6 +6,9 @@ from werkzeug.security import check_password_hash, generate_password_hash
 import os
 import uuid
 from datetime import datetime
+import requests
+from bs4 import BeautifulSoup
+
 
 
 app = Flask(__name__)
@@ -694,6 +697,55 @@ def advertisement_owner():
 
     user = User.query.get(advertisement.creator_id)
     return jsonify({"id": user.id, "email": user.email, "name": user.name, "imgurl": user.imgurl, "phone": user.phone}), 200
+
+@ads_bp.route('/conversation/<int:conversation_id>', methods=['GET', 'POST'])
+def conversation(conversation_id):
+    if request.method == 'POST':
+        # send a new message
+        conversation = Conversation.query.get(conversation_id)
+        message = Message(
+            conversation_id=conversation.id, 
+            sender_id=request.json['sender_id'], 
+            content=request.form.get('content')
+        )
+        db.session.add(message)
+        db.session.commit()
+        return jsonify({'message': 'Message sent successfully'})
+    else:
+        # display conversation and messages
+        conversation = Conversation.query.get(conversation_id)
+        messages = Message.query.filter_by(conversation_id=conversation_id).all()
+        response = {
+            'conversation': conversation.to_dict(),
+            'messages': [message.to_dict() for message in messages]
+        }
+        return jsonify(response)
+
+#web scraping route
+@app.route('/scraping', methods=['GET'])
+def scraping():
+    response = requests.get("https://www.algerieannonces.com/categorie/391/Multi-Services/Cours-de-soutien/3.html")
+    soup = BeautifulSoup(response.text, 'html.parser')
+    
+    annonces = []
+    
+    # Find all the 'li' elements that contain an annonce
+    for li in soup.find_all('li'):
+        try:
+            title = li.find("h3").find("a").text
+        except AttributeError:
+            title = None
+        try:
+            price = li.find('strong', {'class': 'price'}).text
+        except AttributeError:
+            price = None
+        try:
+            location = li.find('span', {'class': 'location'}).text
+        except AttributeError:
+            location = None
+        annonces.append({'title': title, 'price': price, 'location': location})
+
+    return jsonify(annonces)
 
 
 # --------------------------------------------------------------------------------------
